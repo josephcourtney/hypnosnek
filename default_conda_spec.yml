@@ -1,0 +1,13 @@
+channels:
+- anaconda
+- conda-forge
+- bioconda
+- pytorch
+- intel
+dependencies:
+- python>=3.11.5
+- matplotlib
+- numpy
+- python
+- scipy
+
