@@ -36,7 +36,7 @@ function try_activate_venv() {
         if [ "$search_path" = "/" ]; then
             return 1
         fi
-        search_path="${${search_path/..}:A}"
+        search_path="${${search_path%/*}:A}"
     done
 
     if [[ -v VIRTUAL_ENV ]]; then
@@ -76,6 +76,20 @@ function try_activate_venv() {
     return 0
 }
 
+function build_virtual_env {
+    $DEFAULT_PYTHON -m venv --clear --upgrade-deps .venv
+    venv_requirements_path="$ZDOTDIR/default_venv_requirements.txt"
+    echo "$(antsy -s bold -fg yellow)Note: creating virtual environment based on requirements at ~${venv_requirements_path#$HOME}$(antsy -r)"
+    ./.venv/bin/python -m pip install -r "$venv_requirements_path" --quiet
+}
+
+function build_conda_env {
+    readonly name=${1:?"The conda environment name must be specified."}
+    conda_spec_path="$ZDOTDIR/default_conda_spec.yml"
+    echo "$(antsy -s bold -fg yellow)Note: creating conda environment based on spec at ~${conda_spec_path#$HOME}$(antsy -r)"
+    conda_client create -r ./.conda -n "$name" -f "$conda_spec_path"
+}
+
 function venv() {
     curdirname="${PWD##*/}"
     curdirname="${curdirname:-/}"
@@ -104,13 +118,11 @@ function venv() {
     fi
     if [ $# = 1 ] && [ "$1" = "-c" ]; then 
         rm -rf "./.conda/envs/$curdirname"
-        conda_spec_path="$(grealpath --relative-to="$HOME" "$ZDOTDIR/default_conda_spec.yml")"
-        echo "$(antsy -s underline -fg yellow)Note: creating conda environment based on spec at ~/$conda_spec_path $(antsy -r)"
-        conda_client create -r ./.conda -n "$curdirname" -f "$ZDOTDIR/default_conda_spec.yml"
+        build_conda_env "$curdirname"
     elif [ $# = 0 ]; then
         rm -rf "./.venv"
         conda_client activate dev
-        python -m venv --clear --upgrade-deps .venv
+        build_virtual_env
         conda_client deactivate
     else
         echo "usage: venv [-c]"
@@ -121,12 +133,27 @@ function venv() {
 
 function prompt_python_env_type() {
     if [ "$local_virtual_env_found" = true ] && [ "$local_conda_env_found" = true ]; then
-        p10k segment -s HOT -b red -i '' -t "$(antsy -s bold)venv$(antsy -s notbold) / $(antsy -s faint)conda$(antsy -s notfaint)"
+        p10k segment \
+            -s VENV_CONDA \
+            -t "$(antsy -s bold)venv$(antsy -s notbold) / $(antsy -s faint)conda$(antsy -s notfaint)" \
+            -i '' \
+            -b red
     elif [ "$local_virtual_env_found" = true ] && [ "$local_conda_env_found" = false ]; then
-        p10k segment -s HOT -b green -i '󰙴' -t "$(antsy -s bold)venv$(antsy -s notbold)"
+        p10k segment \
+            -s VENV \
+            -t "$(antsy -s bold)venv$(antsy -s notbold)" \
+            -i '󰙴' \
+            -b green
     elif [ "$local_virtual_env_found" = false ] && [ "$local_conda_env_found" = true ]; then
-        p10k segment -s HOT -b green -i '󰙴' -t "$(antsy -s bold)conda$(antsy -s notbold)"
+        p10k segment \
+            -s CONDA \
+            -t "$(antsy -s bold)conda$(antsy -s notbold)" \
+            -i '󰙴' \
+            -b green
+    else
+        return
     fi
 }
+
 
 
